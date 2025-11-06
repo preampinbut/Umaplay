@@ -41,15 +41,15 @@ def dbg(on: bool, *args, **kwargs):
         print(*args, file=sys.stderr, **kwargs)
 
 def load_skill_data(file_path: str, debug: bool) -> Dict[str, str]:
-    """Loads the skills JSON file into a dictionary for quick lookup (ID -> name_en)."""
+    """Loads the skills JSON file into a dictionary for quick lookup (ID -> name)."""
     skill_map: Dict[str, str] = {}
     try:
         with open(file_path, "r", encoding="utf-8") as f:
             data = json.load(f)
             for skill in data:
-                # Assuming the 'id' is a number and 'name_en' is a string
+                # Assuming the 'id' is a number and 'name' is a string
                 skill_id = str(skill.get("id"))
-                skill_name = skill.get("name_en")
+                skill_name = skill.get("name")
                 if skill_id and skill_name:
                     skill_map[skill_id] = skill_name
         dbg(debug, f"[DEBUG] Loaded {len(skill_map)} skills from {file_path}.")
@@ -208,7 +208,7 @@ def parse_events_from_json_data(event_data: Dict[str, Any], debug: bool, skill_m
 # ---------------------------------- Main ------------------------------------
 def main():
     ap = argparse.ArgumentParser(description="Scrape and parse Umamusume support card event data.")
-    ap.add_argument("--skills", type=str, default="skills.json", help="Skills JSON file (id -> name_en lookup).")
+    ap.add_argument("--skills", type=str, default="in_game/skills.json", help="Skills JSON file (id -> name lookup).")
     ap.add_argument("--supports-card", type=str, required=True, help="Comma-separated list of support card URL names (e.g., 30062-silence-suzuka,30063-taiki-shooting)")
     ap.add_argument("--out", default="supports_events.json", help="Output JSON file (array of support card objects)")
     ap.add_argument("--img-dir", default="images", help="Directory to save downloaded card images")
@@ -297,7 +297,7 @@ def main():
             attribute = ATTRIBUTE_MAP.get(raw_attribute, raw_attribute.upper())
             
             # **1. Calculate formatted_id**
-            formatted_id = f"{name}_{attribute}_{rarity}".replace(" ", "_")
+            formatted_id = f"{name}_{attribute}_{rarity}"
             
             dbg(args.debug, f"[DEBUG] Successfully extracted JSON for: {name}")
 
@@ -352,7 +352,6 @@ def main():
             "name": name,
             "rarity": rarity,
             "attribute": attribute, 
-            "id": formatted_id,
             "choice_events": events
         }
         all_supports.append(support_obj)

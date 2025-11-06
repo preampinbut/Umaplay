@@ -120,6 +120,7 @@ def main():
         
         # Build the detailed output object
         detailed_skills.append({
+            "id": skill_id,
             "icon_filename": icon_filename,
             "icon_src": icon_src,
             "name": name_en,
