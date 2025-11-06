@@ -80,9 +80,7 @@ def parse_effects_from_event_dict(event_dict: Dict[str, Any], skill_map: Dict[st
         except (ValueError, TypeError):
             continue
         
-        if type_code == 'en':
-            eff['energy'] = eff.get('energy', 0) + value
-        elif type_code == 'sp':
+        if type_code == 'sp':
             eff['speed'] = eff.get('speed', 0) + value
         elif type_code == 'st':
             eff['stamina'] = eff.get('stamina', 0) + value
@@ -92,6 +90,8 @@ def parse_effects_from_event_dict(event_dict: Dict[str, Any], skill_map: Dict[st
             eff['guts'] = eff.get('guts', 0) + value
         elif type_code == 'in':
             eff['wit'] = eff.get('wit', 0) + value
+        elif type_code == 'en':
+           eff['energy'] = eff.get('energy', 0) + value
         elif type_code == 'pt':
             eff['skill_pts'] = eff.get('skill_pts', 0) + value
         elif type_code == 'bo':
@@ -290,7 +290,12 @@ def main():
             # Extract basic card metadata
             name = item_data.get("char_name", "Unknown")
             rarity_code = item_data.get("rarity")
-            rarity = "SSR" if rarity_code == 3 else f"Rarity_{rarity_code}"
+            if rarity_code == 3:
+                rarity = "SSR"
+            elif rarity_code == 2:
+                rarity = "SR"
+            elif rarity_code == 1:
+                rarity = "R"
             
             # Get the raw type (e.g., 'speed', 'friend') and convert it using the map
             raw_attribute = item_data.get("type", "unknown").lower()
