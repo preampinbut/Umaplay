@@ -37929,5 +37929,160 @@
       "web\\public\\events\\trainee_icon_event\\Meisho Doto\\Meisho Doto.png",
       "web\\public\\events\\trainee_icon_event\\Meisho Doto\\Meisho Doto_1.png"
     ]
+  },
+  {
+    "key": "support/Silence Suzuka/STA/SSR/On and On",
+    "key_step": "support/Silence Suzuka/STA/SSR/On and On#s1",
+    "type": "support",
+    "name": "Silence Suzuka",
+    "rarity": "SSR",
+    "attribute": "STA",
+    "event_name": "On and On",
+    "chain_step": 1,
+    "default_preference": 2,
+    "options": {
+      "1": [
+        {
+          "speed": 10,
+          "stamina": 5,
+          "bond": 5
+        }
+      ],
+      "2": [
+        {
+          "speed": 15,
+          "bond": 5
+        }
+      ]
+    },
+    "title_norm": "on and on",
+    "image_path": "web\\public\\events\\support\\Silence Suzuka_STA_SSR.png",
+    "phash64": 9234368595607157811,
+    "image_variants": [
+      "web\\public\\events\\support\\Silence Suzuka_STA_SSR.png"
+    ]
+  },
+  {
+    "key": "support/Silence Suzuka/STA/SSR/What Should I Do?",
+    "key_step": "support/Silence Suzuka/STA/SSR/What Should I Do?#s1",
+    "type": "support",
+    "name": "Silence Suzuka",
+    "rarity": "SSR",
+    "attribute": "STA",
+    "event_name": "What Should I Do?",
+    "chain_step": 1,
+    "default_preference": 1,
+    "options": {
+      "1": [
+        {
+          "speed": 5,
+          "stamina": 5,
+          "wit": 5,
+          "bond": 5
+        }
+      ],
+      "2": [
+        {
+          "hints": [
+            "Left-Handed ○"
+          ],
+          "bond": 5
+        }
+      ]
+    },
+    "title_norm": "what should i do?",
+    "image_path": "web\\public\\events\\support\\Silence Suzuka_STA_SSR.png",
+    "phash64": 9234368595607157811,
+    "image_variants": [
+      "web\\public\\events\\support\\Silence Suzuka_STA_SSR.png"
+    ]
+  },
+  {
+    "key": "support/Silence Suzuka/STA/SSR/A Winning Vocalist",
+    "key_step": "support/Silence Suzuka/STA/SSR/A Winning Vocalist#s1",
+    "type": "support",
+    "name": "Silence Suzuka",
+    "rarity": "SSR",
+    "attribute": "STA",
+    "event_name": "A Winning Vocalist",
+    "chain_step": 1,
+    "default_preference": 2,
+    "options": {
+      "1": [
+        {
+          "guts": 10,
+          "hints": [
+            "Hydrate"
+          ]
+        }
+      ],
+      "2": [
+        {
+          "speed": 10,
+          "hints": [
+            "Soft Step"
+          ]
+        }
+      ]
+    },
+    "title_norm": "a winning vocalist",
+    "image_path": "web\\public\\events\\support\\Silence Suzuka_STA_SSR.png",
+    "phash64": 9234368595607157811,
+    "image_variants": [
+      "web\\public\\events\\support\\Silence Suzuka_STA_SSR.png"
+    ]
+  },
+  {
+    "key": "support/Silence Suzuka/STA/SSR/A Dream Dance",
+    "key_step": "support/Silence Suzuka/STA/SSR/A Dream Dance#s2",
+    "type": "support",
+    "name": "Silence Suzuka",
+    "rarity": "SSR",
+    "attribute": "STA",
+    "event_name": "A Dream Dance",
+    "chain_step": 2,
+    "default_preference": 1,
+    "options": {
+      "1": [
+        {
+          "stamina": 10,
+          "skill_pts": 10
+        }
+      ]
+    },
+    "title_norm": "a dream dance",
+    "image_path": "web\\public\\events\\support\\Silence Suzuka_STA_SSR.png",
+    "phash64": 9234368595607157811,
+    "image_variants": [
+      "web\\public\\events\\support\\Silence Suzuka_STA_SSR.png"
+    ]
+  },
+  {
+    "key": "support/Silence Suzuka/STA/SSR/A Stage to Remember",
+    "key_step": "support/Silence Suzuka/STA/SSR/A Stage to Remember#s3",
+    "type": "support",
+    "name": "Silence Suzuka",
+    "rarity": "SSR",
+    "attribute": "STA",
+    "event_name": "A Stage to Remember",
+    "chain_step": 3,
+    "default_preference": 1,
+    "options": {
+      "1": [
+        {
+          "speed": 5,
+          "stamina": 5,
+          "hints": [
+            "Concentration"
+          ]
+        }
+      ]
+    },
+    "title_norm": "a stage to remember",
+    "image_path": "web\\public\\events\\support\\Silence Suzuka_STA_SSR.png",
+    "phash64": 9234368595607157811,
+    "image_variants": [
+      "web\\public\\events\\support\\Silence Suzuka_STA_SSR.png"
+    ]
   }
 ]
