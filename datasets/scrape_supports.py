@@ -80,7 +80,9 @@ def parse_effects_from_event_dict(event_dict: Dict[str, Any], skill_map: Dict[st
         except (ValueError, TypeError):
             continue
         
-        if type_code == 'sp':
+        if type_code == 'en':
+            eff['energy'] = eff.get('energy', 0) + value
+        elif type_code == 'sp':
             eff['speed'] = eff.get('speed', 0) + value
         elif type_code == 'st':
             eff['stamina'] = eff.get('stamina', 0) + value
