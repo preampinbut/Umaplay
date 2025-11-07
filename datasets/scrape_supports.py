@@ -91,8 +91,29 @@ def parse_effects_from_event_dict(event_dict: Dict[str, Any], skill_map: Dict[st
             current_eff = {} # Start a new, empty outcome dictionary
             continue # Skip to the next item
             
-        value_raw = item.get('v')
+        value = item.get('v')
 
+        if type_code == 'sp':
+            current_eff['speed'] = value
+        elif type_code == 'st':
+            current_eff['stamina'] = value
+        elif type_code == 'po':
+            current_eff['power'] = value
+        elif type_code == 'gu':
+            current_eff['guts'] = value
+        elif type_code == 'in':
+            current_eff['wit'] = value
+        elif type_code == 'en':
+            current_eff['energy'] = value
+        elif type_code == 'pt':
+            current_eff['skill_pts'] = value
+        elif type_code == 'bo':
+            current_eff['bond'] = value
+        elif type_code == 'sk': # Skill: translate ID to name
+            skill_id = str(item.get('d', ''))
+            # **TRANSLATE SKILL ID HERE**
+            skill_name = skill_map.get(skill_id, f"Skill ID: {skill_id}")
+            current_eff.setdefault('hints', []).append(f"{skill_name} ({value})")
         # --- Handle 'sr' (Skill Roll) type code which has nested data ---
         if type_code == 'sr':
             # 'sr' structure: nested list of skills in 'd'
@@ -101,11 +122,11 @@ def parse_effects_from_event_dict(event_dict: Dict[str, Any], skill_map: Dict[st
             
             for skill_item in skills_data:
                 skill_id = str(skill_item.get('d', ''))
-                skill_value_raw = skill_item.get('v')
+                value = skill_item.get('v')
 
                 # Translate skill ID
                 skill_name = skill_map.get(skill_id, f"Skill ID: {skill_id}")
-                skill_names.append(f"{skill_name} ({skill_value_raw})")
+                skill_names.append(f"{skill_name} ({value})")
                 
             if skill_names:
                 # Join all skill names with ' / ' and add to hints
@@ -118,36 +139,6 @@ def parse_effects_from_event_dict(event_dict: Dict[str, Any], skill_map: Dict[st
             current_eff.setdefault("status", status)
         elif type_code == 'ha':
             current_eff.setdefault("status", "Heal all negative status effects")
-        
-        try:
-            # Safely handle value, stripping potential '+' sign
-            value = int(str(value_raw).strip('+'))
-        except (ValueError, TypeError):
-            # Skip items without a valid integer value (e.g., just 'di' or corrupted data)
-            continue
-            
-        # Map type codes to effect keys
-        if type_code == 'sp':
-            current_eff['speed'] = current_eff.get('speed', 0) + value
-        elif type_code == 'st':
-            current_eff['stamina'] = current_eff.get('stamina', 0) + value
-        elif type_code == 'po':
-            current_eff['power'] = current_eff.get('power', 0) + value
-        elif type_code == 'gu':
-            current_eff['guts'] = current_eff.get('guts', 0) + value
-        elif type_code == 'in':
-            current_eff['wit'] = current_eff.get('wit', 0) + value
-        elif type_code == 'en':
-            current_eff['energy'] = current_eff.get('energy', 0) + value
-        elif type_code == 'pt':
-            current_eff['skill_pts'] = current_eff.get('skill_pts', 0) + value
-        elif type_code == 'bo':
-            current_eff['bond'] = current_eff.get('bond', 0) + value
-        elif type_code == 'sk': # Skill: translate ID to name
-            skill_id = str(item.get('d', ''))
-            # **TRANSLATE SKILL ID HERE**
-            skill_name = skill_map.get(skill_id, f"Skill ID: {skill_id}")
-            current_eff.setdefault('hints', []).append(f"{skill_name} ({value_raw})")
             
     # Finalize and append the last accumulated outcome if it contains effects
     final_eff = {k: v for k, v in current_eff.items() if v not in (None, 0, [])}
