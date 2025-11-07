@@ -139,6 +139,11 @@ def parse_effects_from_event_dict(event_dict: Dict[str, Any], skill_map: Dict[st
             # parse status from in_game/status.json
             status = item.get('d')
             current_eff.setdefault("status", status)
+        elif type_code == 'sg': # Skill: translate ID to name
+            skill_id = str(item.get('d', ''))
+            # **TRANSLATE SKILL ID HERE**
+            skill_name = skill_map.get(skill_id, f"Skill ID: {skill_id}")
+            current_eff.setdefault('status', f"Obtain {skill_name}")
         elif type_code == 'ha':
             current_eff.setdefault("status", "Heal all negative status effects")
             
@@ -183,7 +188,7 @@ def choose_default_preference(options: Dict[str, List[Dict[str, Any]]]) -> int:
 
 # ------------------------------ Event Parsing -------------------------------
 
-def parse_events_from_json_data(event_data: Dict[str, Any], debug: bool, skill_map: Dict[str, str]) -> List[Dict[str, Any]]:
+def parse_events_from_json_data(event_data: Dict[str, Any], debug: bool, skill_map: Dict[str, str], period: str) -> List[Dict[str, Any]]:
     """
     Parses event data from the 'eventData' dictionary in the Next.js JSON.
     """
@@ -205,8 +210,22 @@ def parse_events_from_json_data(event_data: Dict[str, Any], debug: bool, skill_m
         for random_event in events:
             title = random_event.get('n', 'Unknown Random Event')
             options: Dict[str, List[Dict[str, Any]]] = {}
-            
-            for idx, choice in enumerate(random_event.get('c', []), 1):
+
+            random_event_to_process = random_event.get('c', [])
+
+            if period:
+                history = random_event.get('history', [])
+                if history:
+                    peroid_lookup = next(
+                        (item for item in history if item.get("period") == period), 
+                        None # Default value if the item is not found
+                    )
+                    if peroid_lookup:
+                        dbg(debug, f"[INFO] Found matching period data for random event: {title!r}, period: {period!r}")
+                        peroid_data = peroid_lookup.get('data', [])
+                        random_event_to_process = peroid_data.get('c', [])
+
+            for idx, choice in enumerate(random_event_to_process, 1):
                 option_key = str(idx)
                 # PASS skill_map HERE
                 outcomes = parse_effects_from_event_dict(choice, skill_map)
@@ -221,7 +240,7 @@ def parse_events_from_json_data(event_data: Dict[str, Any], debug: bool, skill_m
                     "options": options,
                     "default_preference": default_pref
                 })
-                dbg(debug, f" [INFO] Parsed random event: {title!r}")
+                dbg(debug, f"[INFO] Parsed random event: {title!r}")
 
     parse_random_event(events_struct.get('random', []))
 
@@ -230,8 +249,22 @@ def parse_events_from_json_data(event_data: Dict[str, Any], debug: bool, skill_m
     for chain_event in events_struct.get('arrows', []):
         title = chain_event.get('n', 'Unknown Chain Event')
         options: Dict[str, List[Dict[str, Any]]] = {}
-        
-        for idx, choice in enumerate(chain_event.get('c', []), 1):
+
+        chain_event_to_process = chain_event.get('c', [])
+
+        if period:
+            history = chain_event.get('history', [])
+            if history:
+                peroid_lookup = next(
+                    (item for item in history if item.get("period") == period), 
+                    None # Default value if the item is not found
+                )
+                if peroid_lookup:
+                    dbg(debug, f"[INFO] Found matching period data for chain event: {title!r}, period: {period!r}")
+                    peroid_data = peroid_lookup.get('data', [])
+                    chain_event_to_process = peroid_data.get('c', [])
+
+        for idx, choice in enumerate(chain_event_to_process, 1):
             option_key = str(idx)
             # PASS skill_map HERE
             outcomes = parse_effects_from_event_dict(choice, skill_map)
@@ -246,7 +279,7 @@ def parse_events_from_json_data(event_data: Dict[str, Any], debug: bool, skill_m
                 "options": options,
                 "default_preference": default_pref
             })
-            dbg(debug, f" [INFO] Parsed chain event: {title!r} (step {chain_step})")
+            dbg(debug, f"[INFO] Parsed chain event: {title!r} (step {chain_step})")
         
         chain_step += 1
     
@@ -267,6 +300,7 @@ def main():
     ap.add_argument("--skills", type=str, default="in_game/skills.json", help="Skills JSON file (id -> name lookup).")
     ap.add_argument("--supports-card", type=str, help="Comma-separated list of support card URL names (e.g., 30062-silence-suzuka,30063-taiki-shooting)")
     ap.add_argument("--characters-card", type=str, help="Comma-separated list of character card URL names (e.g., 105602-matikanefukukitaru,105801-meisho-doto)")
+    ap.add_argument("--period", type=str, default="", help="Event period filter (e.g., pre_first_anni)")
     ap.add_argument("--out", default="supports_events.json", help="Output JSON file (array of support card objects)")
     ap.add_argument("--img-dir", default="images", help="Directory to save downloaded card images")
     ap.add_argument("--debug", action="store_true", help="Enable verbose debug prints to stderr")
@@ -438,7 +472,7 @@ def main():
             # --- IMAGE FIND & DOWNLOAD LOGIC END ---
             
             # Process events - **PASS SKILL LOOKUP DICTIONARY**
-            events = parse_events_from_json_data(event_data, args.debug, skill_lookup)
+            events = parse_events_from_json_data(event_data, args.debug, skill_lookup, args.period)
 
             support_obj = {
                 "type": "support" if card_type == "support" else "trainee",
