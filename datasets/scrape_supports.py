@@ -34,6 +34,7 @@ STAT_WEIGHTS = {
 
 BASE_URL = "https://gametora.com"
 SUPPORT_BASE_URL = BASE_URL + "/umamusume/supports/"
+CHARACTER_BASE_URL = BASE_URL + "/umamusume/characters/"
 
 # --------------------------------- Utils ------------------------------------
 def dbg(on: bool, *args, **kwargs):
@@ -253,7 +254,8 @@ def parse_events_from_json_data(event_data: Dict[str, Any], debug: bool, skill_m
 def main():
     ap = argparse.ArgumentParser(description="Scrape and parse Umamusume support card event data.")
     ap.add_argument("--skills", type=str, default="in_game/skills.json", help="Skills JSON file (id -> name lookup).")
-    ap.add_argument("--supports-card", type=str, required=True, help="Comma-separated list of support card URL names (e.g., 30062-silence-suzuka,30063-taiki-shooting)")
+    ap.add_argument("--supports-card", type=str, help="Comma-separated list of support card URL names (e.g., 30062-silence-suzuka,30063-taiki-shooting)")
+    ap.add_argument("--characters-card", type=str, help="Comma-separated list of character card URL names (e.g., 105602-matikanefukukitaru,105801-meisho-doto)")
     ap.add_argument("--out", default="supports_events.json", help="Output JSON file (array of support card objects)")
     ap.add_argument("--img-dir", default="images", help="Directory to save downloaded card images")
     ap.add_argument("--debug", action="store_true", help="Enable verbose debug prints to stderr")
@@ -262,9 +264,16 @@ def main():
     # **LOAD SKILL DATA HERE**
     skill_lookup = load_skill_data(args.skills, args.debug)
 
-    supported_cards = [card.strip() for card in args.supports_card.split(",") if card.strip()]
-    if not supported_cards:
-        print("[ERROR] No support cards specified.", file=sys.stderr)
+    supported_cards = []
+    if args.supports_card:
+        supported_cards = [card.strip() for card in args.supports_card.split(",") if card.strip()]
+    character_cards = []
+    if args.characters_card:
+        character_cards = [card.strip() for card in args.characters_card.split(",") if card.strip()]
+
+    # Check if either list is empty
+    if not supported_cards and not character_cards:
+        print("[ERROR] No support or character cards specified. Please provide values for --supports-card or --characters-card.", file=sys.stderr)
         return
 
     all_supports: List[Dict[str, Any]] = []
@@ -299,112 +308,140 @@ def main():
     }
 
     # Regex pattern for the image class prefix
-    IMG_CLASS_PATTERN = re.compile(r"^supports_infobox_top_image__")
+    SUPPORT_IMG_CLASS_PATTERN = re.compile(r"^supports_infobox_top_image__")
+    CHARACTER_IMG_CLASS_PATTERN = re.compile(r"^characters_infobox_character_image__")
 
-
-    for card_slug in supported_cards:
-        url = SUPPORT_BASE_URL + card_slug
-        dbg(args.debug, f"[DEBUG] Fetching URL: {url}")
-        
-        try:
-            response = requests.get(url, timeout=15)
-            response.raise_for_status()
-        except requests.exceptions.RequestException as e:
-            print(f"[WARN] Failed to fetch {card_slug}: {e}", file=sys.stderr)
-            continue
-        
-        soup = BeautifulSoup(response.content, 'html.parser')
-        
-        # --- JSON DATA EXTRACTION ---
-        
-        next_data_tag = soup.find(id="__NEXT_DATA__")
-
-        if not next_data_tag:
-            print(f"[WARN] Could not find __NEXT_DATA__ tag for {card_slug}.", file=sys.stderr)
-            continue
-        
-        try:
-            json_content = next_data_tag.decode_contents()
-            data = json.loads(json_content)
+    def extract_cards(cards: List[Any], card_type: str):
+        for card_slug in cards:
+            url = SUPPORT_BASE_URL + card_slug
+            if card_type == "trainee":
+                url = CHARACTER_BASE_URL + card_slug
+            dbg(args.debug, f"[DEBUG] Fetching URL: {url}")
             
-            page_props = data['props']['pageProps']
-            item_data = page_props['itemData']
-            event_data = page_props['eventData']
-            
-            # Extract basic card metadata
-            name = item_data.get("char_name", "Unknown")
-            rarity_code = item_data.get("rarity")
-            if rarity_code == 3:
-                rarity = "SSR"
-            elif rarity_code == 2:
-                rarity = "SR"
-            elif rarity_code == 1:
-                rarity = "R"
-            
-            # Get the raw type (e.g., 'speed', 'friend') and convert it using the map
-            raw_attribute = item_data.get("type", "unknown").lower()
-            attribute = ATTRIBUTE_MAP.get(raw_attribute, raw_attribute.upper())
-            
-            # **1. Calculate formatted_id**
-            formatted_id = f"{name}_{attribute}_{rarity}"
-            
-            dbg(args.debug, f"[DEBUG] Successfully extracted JSON for: {name}")
-
-        except (json.JSONDecodeError, KeyError) as e:
-            print(f"[ERROR] Failed to parse JSON or access keys for {card_slug}: {e}", file=sys.stderr)
-            continue
-        
-        # --- JSON DATA EXTRACTION END ---
-        
-        
-        # --- IMAGE FIND & DOWNLOAD LOGIC START ---
-        
-        image_tag = soup.find("img", class_=IMG_CLASS_PATTERN)
-        image_url = None
-        filename = None
-        
-        if image_tag and image_tag.get('src'):
-            raw_src = image_tag['src']
-            
-            # Use safe concatenation (casting to str and handling leading slash)
-            cleaned_src = str(raw_src).lstrip('/')
-            image_url = BASE_URL + '/' + cleaned_src
-
-            dbg(args.debug, f"[DEBUG] Found image URL: {image_url}")
-            
-            # 2. Construct the file path and name using the formatted_id
-            ext = os.path.splitext(image_url.split('?')[0])[-1]
-            
-            # **2. Use formatted_id as the base filename**
-            filename = formatted_id + ext 
-            save_path = os.path.join(args.img_dir, filename)
-            
-            # 3. Download the image
             try:
-                img_response = requests.get(image_url, timeout=10)
-                img_response.raise_for_status()
-                
-                with open(save_path, 'wb') as f:
-                    f.write(img_response.content)
-                print(f"[INFO] Downloaded image to: {save_path}")
-                
+                response = requests.get(url, timeout=15)
+                response.raise_for_status()
             except requests.exceptions.RequestException as e:
-                print(f"[WARN] Failed to download image for {card_slug} from {image_url}: {e}", file=sys.stderr)
-        
-        # --- IMAGE FIND & DOWNLOAD LOGIC END ---
-        
-        # Process events - **PASS SKILL LOOKUP DICTIONARY**
-        events = parse_events_from_json_data(event_data, args.debug, skill_lookup)
+                print(f"[WARN] Failed to fetch {card_slug}: {e}", file=sys.stderr)
+                continue
+            
+            soup = BeautifulSoup(response.content, 'html.parser')
+            
+            # --- JSON DATA EXTRACTION ---
+            
+            next_data_tag = soup.find(id="__NEXT_DATA__")
 
-        support_obj = {
-            "type": "support",
-            "name": name,
-            "rarity": rarity,
-            "attribute": attribute, 
-            "choice_events": events
-        }
-        all_supports.append(support_obj)
-        print(f"[INFO] Parsed support card: {name} ({len(events)} events)")
+            if not next_data_tag:
+                print(f"[WARN] Could not find __NEXT_DATA__ tag for {card_slug}.", file=sys.stderr)
+                continue
+            
+            try:
+                json_content = next_data_tag.decode_contents()
+                data = json.loads(json_content)
+
+                page_props = data['props']['pageProps']
+                item_data = page_props['itemData']
+                event_data = page_props['eventData']
+                
+                # Extract basic card metadata
+                name = item_data.get("char_name", "Unknown")
+                if card_type == "trainee":
+                    name = item_data.get("name_en", "Unknown")
+                rarity_code = item_data.get("rarity")
+                if rarity_code == 3:
+                    rarity = "SSR"
+                elif rarity_code == 2:
+                    rarity = "SR"
+                elif rarity_code == 1:
+                    rarity = "R"
+
+                version = item_data.get("version", None)
+                
+                # Get the raw type (e.g., 'speed', 'friend') and convert it using the map
+                raw_attribute = item_data.get("type", "unknown").lower()
+                attribute = ATTRIBUTE_MAP.get(raw_attribute, raw_attribute.upper())
+                
+                # **1. Calculate formatted_id**
+                formatted_id = f"{name}_{attribute}_{rarity}"
+                if card_type == "trainee":
+                    formatted_id = f"{name}_profile"
+                    if version:
+                        formatted_id = f"{name} ({version.replace('_', ' ').title()})_profile"
+                
+                dbg(args.debug, f"[DEBUG] Successfully extracted JSON for: {name}")
+
+            except (json.JSONDecodeError, KeyError) as e:
+                print(f"[ERROR] Failed to parse JSON or access keys for {card_slug}: {e}", file=sys.stderr)
+                continue
+            
+            # --- JSON DATA EXTRACTION END ---
+            
+            
+            # --- IMAGE FIND & DOWNLOAD LOGIC START ---
+            
+            image_tag = soup.find("img", class_=SUPPORT_IMG_CLASS_PATTERN)
+            if card_type == "trainee":
+                image_tag = soup.find("div", class_=CHARACTER_IMG_CLASS_PATTERN)
+                # find img inside the div
+                if image_tag:
+                    image_tag = image_tag.find("span")
+                    # find img inside the span
+                    if image_tag:
+                        image_tag = image_tag.find("img")
+            image_url = None
+            filename = None
+            
+            if image_tag and image_tag.get('src'):
+                raw_src = image_tag['src']
+                
+                # Use safe concatenation (casting to str and handling leading slash)
+                cleaned_src = str(raw_src).lstrip('/')
+                image_url = BASE_URL + '/' + cleaned_src
+
+                dbg(args.debug, f"[DEBUG] Found image URL: {image_url}")
+                
+                # 2. Construct the file path and name using the formatted_id
+                ext = os.path.splitext(image_url.split('?')[0])[-1]
+                
+                # **2. Use formatted_id as the base filename**
+                filename = formatted_id + ext 
+                subfolder_path = os.path.join(args.img_dir, card_type)
+                save_path = os.path.join(subfolder_path, filename)
+
+                # ***2. Create the directory if it doesn't exist
+                if not os.path.exists(subfolder_path):
+                    os.makedirs(subfolder_path)
+                
+                # 3. Download the image
+                try:
+                    img_response = requests.get(image_url, timeout=10)
+                    img_response.raise_for_status()
+                    
+                    with open(save_path, 'wb') as f:
+                        f.write(img_response.content)
+                    print(f"[INFO] Downloaded image to: {save_path}")
+                    
+                except requests.exceptions.RequestException as e:
+                    print(f"[WARN] Failed to download image for {card_slug} from {image_url}: {e}", file=sys.stderr)
+            
+            # --- IMAGE FIND & DOWNLOAD LOGIC END ---
+            
+            # Process events - **PASS SKILL LOOKUP DICTIONARY**
+            events = parse_events_from_json_data(event_data, args.debug, skill_lookup)
+
+            support_obj = {
+                "type": "support" if card_type == "support" else "trainee",
+                "name": name if card_type == "support" else f"{name} ({version.replace('_', ' ').title()})" if version else name,
+                "rarity": rarity if card_type == "support" else "None",
+                "attribute": attribute if card_type == "support" else "None",
+                "choice_events": events
+            }
+            all_supports.append(support_obj)
+            print(f"[INFO] Parsed support card: {name} ({len(events)} events)")
+        
+    extract_cards(supported_cards, "support")
+
+    extract_cards(character_cards, "trainee")
 
     # --- Final Output ---
     with open(args.out, "w", encoding="utf-8") as f:
