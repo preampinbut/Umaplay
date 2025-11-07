@@ -184,13 +184,25 @@ def parse_effects_from_event_dict(event_dict: Dict[str, Any], skill_map: Dict[st
             
     return outcomes
 
+def parse_value(value_str: str) -> float:
+    # 1. Strip the leading '+' sign (if present)
+    clean_str = value_str.lstrip('+')
+    # 2. Split the string by '/' and select the first element
+    first_value_str = clean_str.split('/')[0]
+    # 3. Convert the result to a float
+    try:
+        return float(first_value_str)
+    except ValueError:
+        # Handle cases where the resulting string isn't a valid number
+        print(f"Warning: Could not convert '{first_value_str}' to float.")
+        return 0.0 # Return 0.0 or raise an error as appropriate for your code
 
 def score_outcome(eff: Dict[str, Any]) -> float:
     """Calculate a score for an event outcome based on weighted stats."""
     energy = float(eff.get("energy", 0))
     stats_sum = 0.0
     for stat, weight in STAT_WEIGHTS.items():
-        stats_sum += weight * float(eff.get(stat, 0))
+        stats_sum += weight * float(parse_value(eff.get(stat, "0")))
     spts   = float(eff.get("skill_pts", 0))
     hints  = len(eff.get("hints", []))
     bond   = float(eff.get("bond", 0))
