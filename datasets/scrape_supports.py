@@ -64,45 +64,70 @@ def load_skill_data(file_path: str, debug: bool) -> Dict[str, str]:
 
 # -------------------------- Parsing Helpers ---------------------------------
 
-def parse_effects_from_event_dict(event_dict: Dict[str, Any], skill_map: Dict[str, str]) -> Dict[str, Any]:
+def parse_effects_from_event_dict(event_dict: Dict[str, Any], skill_map: Dict[str, str]) -> List[Dict[str, Any]]:
     """
     Parses the effects dictionary ('r' list) from the raw JSON structure
-    into a flat dictionary of stats/effects, translating skill IDs to names.
+    into a LIST of flat dictionaries of stats/effects, translating skill IDs to names.
+    The 'di' type_code acts as a separator between distinct outcomes.
+    
+    Returns: A list of effect dictionaries (one for each possible outcome).
     """
-    eff: Dict[str, Any] = {}
+    outcomes: List[Dict[str, Any]] = []
+    # Initialize the first outcome dictionary
+    current_eff: Dict[str, Any] = {}
+    
+    # Iterate through all raw effect items
     for item in event_dict.get('r', []):
         type_code = item.get('t')
+        
+        if type_code == 'di':
+            # 'di' separator: finalize the current outcome and start a new one
+            
+            # Only append if the current outcome is not empty
+            if any(v not in (None, 0, []) for v in current_eff.values()):
+                outcomes.append(current_eff)
+            
+            current_eff = {} # Start a new, empty outcome dictionary
+            continue # Skip to the next item
+            
         value_raw = item.get('v')
         
         try:
             # Safely handle value, stripping potential '+' sign
             value = int(str(value_raw).strip('+'))
         except (ValueError, TypeError):
+            # Skip items without a valid integer value (e.g., just 'di' or corrupted data)
             continue
-        
+            
+        # Map type codes to effect keys
         if type_code == 'sp':
-            eff['speed'] = eff.get('speed', 0) + value
+            current_eff['speed'] = current_eff.get('speed', 0) + value
         elif type_code == 'st':
-            eff['stamina'] = eff.get('stamina', 0) + value
+            current_eff['stamina'] = current_eff.get('stamina', 0) + value
         elif type_code == 'po':
-            eff['power'] = eff.get('power', 0) + value
+            current_eff['power'] = current_eff.get('power', 0) + value
         elif type_code == 'gu':
-            eff['guts'] = eff.get('guts', 0) + value
+            current_eff['guts'] = current_eff.get('guts', 0) + value
         elif type_code == 'in':
-            eff['wit'] = eff.get('wit', 0) + value
+            current_eff['wit'] = current_eff.get('wit', 0) + value
         elif type_code == 'en':
-           eff['energy'] = eff.get('energy', 0) + value
+            current_eff['energy'] = current_eff.get('energy', 0) + value
         elif type_code == 'pt':
-            eff['skill_pts'] = eff.get('skill_pts', 0) + value
+            current_eff['skill_pts'] = current_eff.get('skill_pts', 0) + value
         elif type_code == 'bo':
-            eff['bond'] = eff.get('bond', 0) + value
+            current_eff['bond'] = current_eff.get('bond', 0) + value
         elif type_code == 'sk': # Skill: translate ID to name
             skill_id = str(item.get('d', ''))
             # **TRANSLATE SKILL ID HERE**
             skill_name = skill_map.get(skill_id, f"Skill ID: {skill_id}")
-            eff.setdefault('hints', []).append(skill_name)
+            current_eff.setdefault('hints', []).append(skill_name)
             
-    return {k: v for k, v in eff.items() if v not in (None, 0, [])}
+    # Finalize and append the last accumulated outcome if it contains effects
+    final_eff = {k: v for k, v in current_eff.items() if v not in (None, 0, [])}
+    if final_eff or not outcomes: # Always ensure at least one outcome is returned, even if empty, or if effects were found
+        outcomes.append(final_eff)
+            
+    return outcomes
 
 
 def score_outcome(eff: Dict[str, Any]) -> float:
@@ -163,8 +188,8 @@ def parse_events_from_json_data(event_data: Dict[str, Any], debug: bool, skill_m
         for idx, choice in enumerate(random_event.get('c', []), 1):
             option_key = str(idx)
             # PASS skill_map HERE
-            outcome_effects = parse_effects_from_event_dict(choice, skill_map)
-            options[option_key] = [outcome_effects]
+            outcomes = parse_effects_from_event_dict(choice, skill_map)
+            options[option_key] = outcomes
         
         if options:
             default_pref = choose_default_preference(options)
@@ -187,8 +212,8 @@ def parse_events_from_json_data(event_data: Dict[str, Any], debug: bool, skill_m
         for idx, choice in enumerate(chain_event.get('c', []), 1):
             option_key = str(idx)
             # PASS skill_map HERE
-            outcome_effects = parse_effects_from_event_dict(choice, skill_map)
-            options[option_key] = [outcome_effects]
+            outcomes = parse_effects_from_event_dict(choice, skill_map)
+            options[option_key] = outcomes
 
         if options:
             default_pref = choose_default_preference(options)
