@@ -63,9 +63,39 @@ def load_skill_data(file_path: str, debug: bool) -> Dict[str, str]:
         
     return skill_map
 
+def load_status_data(file_path: str, debug: bool) -> Dict[str, str]:
+    """
+    Loads a JSON file containing status effects/buffs/debuffs 
+    into a dictionary for quick lookup (ID string -> name string).
+    
+    Expected JSON format: { "ID": "Name", ... }
+    """
+    status_map: Dict[str, str] = {}
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            # The data is already in the desired Dict[str, str] format
+            data = json.load(f)
+            
+            # Ensure all keys are strings (in case the JSON stored IDs as numbers)
+            # and only keep string values, just in case.
+            status_map = {str(k): v for k, v in data.items() if isinstance(v, str)}
+
+        dbg(debug, f"[DEBUG] Loaded {len(status_map)} status entries from {file_path}.")
+        
+    except FileNotFoundError:
+        print(f"[WARN] Status file not found at: {file_path}. Status IDs will not be translated.", file=sys.stderr)
+        
+    except json.JSONDecodeError as e:
+        print(f"[ERROR] Failed to decode status JSON file {file_path}: {e}", file=sys.stderr)
+        
+    except Exception as e:
+        print(f"[ERROR] An unexpected error occurred loading status data: {e}", file=sys.stderr)
+        
+    return status_map
+
 # -------------------------- Parsing Helpers ---------------------------------
 
-def parse_effects_from_event_dict(event_dict: Dict[str, Any], skill_map: Dict[str, str]) -> List[Dict[str, Any]]:
+def parse_effects_from_event_dict(event_dict: Dict[str, Any], skill_map: Dict[str, str], status_map: Dict[str, str]) -> List[Dict[str, Any]]:
     """
     Parses the effects dictionary ('r' list) from the raw JSON structure
     into a LIST of flat dictionaries of stats/effects, translating skill IDs to names.
@@ -137,7 +167,7 @@ def parse_effects_from_event_dict(event_dict: Dict[str, Any], skill_map: Dict[st
         elif type_code == 'se': # need to check { "r": true } for random
             # TODO
             # parse status from in_game/status.json
-            status = item.get('d')
+            status = status_map.get(str(item.get('d')), f"Unknown Status {item.get('d')!r}")
             current_eff.setdefault("status", status)
         elif type_code == 'sg': # Skill: translate ID to name
             skill_id = str(item.get('d', ''))
@@ -188,7 +218,7 @@ def choose_default_preference(options: Dict[str, List[Dict[str, Any]]]) -> int:
 
 # ------------------------------ Event Parsing -------------------------------
 
-def parse_events_from_json_data(event_data: Dict[str, Any], debug: bool, skill_map: Dict[str, str], period: str) -> List[Dict[str, Any]]:
+def parse_events_from_json_data(event_data: Dict[str, Any], debug: bool, skill_map: Dict[str, str], status_map: Dict[str, str], period: str) -> List[Dict[str, Any]]:
     """
     Parses event data from the 'eventData' dictionary in the Next.js JSON.
     """
@@ -228,7 +258,7 @@ def parse_events_from_json_data(event_data: Dict[str, Any], debug: bool, skill_m
             for idx, choice in enumerate(random_event_to_process, 1):
                 option_key = str(idx)
                 # PASS skill_map HERE
-                outcomes = parse_effects_from_event_dict(choice, skill_map)
+                outcomes = parse_effects_from_event_dict(choice, skill_map, status_map)
                 options[option_key] = outcomes
             
             if options:
@@ -267,7 +297,7 @@ def parse_events_from_json_data(event_data: Dict[str, Any], debug: bool, skill_m
         for idx, choice in enumerate(chain_event_to_process, 1):
             option_key = str(idx)
             # PASS skill_map HERE
-            outcomes = parse_effects_from_event_dict(choice, skill_map)
+            outcomes = parse_effects_from_event_dict(choice, skill_map, status_map)
             options[option_key] = outcomes
 
         if options:
@@ -298,6 +328,7 @@ def parse_events_from_json_data(event_data: Dict[str, Any], debug: bool, skill_m
 def main():
     ap = argparse.ArgumentParser(description="Scrape and parse Umamusume support card event data.")
     ap.add_argument("--skills", type=str, default="in_game/skills.json", help="Skills JSON file (id -> name lookup).")
+    ap.add_argument("--status", type=str, default="in_game/status.json", help="Status JSON file (id -> name lookup).")
     ap.add_argument("--supports-card", type=str, help="Comma-separated list of support card URL names (e.g., 30062-silence-suzuka,30063-taiki-shooting)")
     ap.add_argument("--characters-card", type=str, help="Comma-separated list of character card URL names (e.g., 105602-matikanefukukitaru,105801-meisho-doto)")
     ap.add_argument("--period", type=str, default="", help="Event period filter (e.g., pre_first_anni)")
@@ -308,6 +339,9 @@ def main():
 
     # **LOAD SKILL DATA HERE**
     skill_lookup = load_skill_data(args.skills, args.debug)
+
+    # **LOAD STATUS DATA HERE**
+    status_lookup = load_status_data(args.status, args.debug)
 
     supported_cards = []
     if args.supports_card:
@@ -472,7 +506,7 @@ def main():
             # --- IMAGE FIND & DOWNLOAD LOGIC END ---
             
             # Process events - **PASS SKILL LOOKUP DICTIONARY**
-            events = parse_events_from_json_data(event_data, args.debug, skill_lookup, args.period)
+            events = parse_events_from_json_data(event_data, args.debug, skill_lookup, status_lookup, args.period)
 
             support_obj = {
                 "type": "support" if card_type == "support" else "trainee",
