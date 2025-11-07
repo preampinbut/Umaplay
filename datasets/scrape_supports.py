@@ -134,7 +134,9 @@ def parse_effects_from_event_dict(event_dict: Dict[str, Any], skill_map: Dict[st
                 current_eff.setdefault('hints', []).append(hint_string)
         elif type_code == 'ee':
             current_eff.setdefault("chain_end", True)
-        elif type_code == 'se':
+        elif type_code == 'se': # need to check { "r": true } for random
+            # TODO
+            # parse status from in_game/status.json
             status = item.get('d')
             current_eff.setdefault("status", status)
         elif type_code == 'ha':
@@ -199,29 +201,31 @@ def parse_events_from_json_data(event_data: Dict[str, Any], debug: bool, skill_m
         return out
 
     # 1. Random Events
-    for random_event in events_struct.get('random', []):
-        title = random_event.get('n', 'Unknown Random Event')
-        options: Dict[str, List[Dict[str, Any]]] = {}
-        
-        for idx, choice in enumerate(random_event.get('c', []), 1):
-            option_key = str(idx)
-            # PASS skill_map HERE
-            outcomes = parse_effects_from_event_dict(choice, skill_map)
-            options[option_key] = outcomes
-        
-        if options:
-            default_pref = choose_default_preference(options)
-            out.append({
-                "type": "random",
-                "chain_step": 1,
-                "name": title,
-                "options": options,
-                "default_preference": default_pref
-            })
-            dbg(debug, f" [INFO] Parsed random event: {title!r}")
+    def parse_random_event(events: Any):
+        for random_event in events:
+            title = random_event.get('n', 'Unknown Random Event')
+            options: Dict[str, List[Dict[str, Any]]] = {}
+            
+            for idx, choice in enumerate(random_event.get('c', []), 1):
+                option_key = str(idx)
+                # PASS skill_map HERE
+                outcomes = parse_effects_from_event_dict(choice, skill_map)
+                options[option_key] = outcomes
+            
+            if options:
+                default_pref = choose_default_preference(options)
+                out.append({
+                    "type": "random",
+                    "chain_step": 1,
+                    "name": title,
+                    "options": options,
+                    "default_preference": default_pref
+                })
+                dbg(debug, f" [INFO] Parsed random event: {title!r}")
 
+    parse_random_event(events_struct.get('random', []))
 
-    # 2. Chain Events (Arrows) - often "After a Race" or "Continuous" events
+    # 2. Chain Events (Arrows)
     chain_step = 1
     for chain_event in events_struct.get('arrows', []):
         title = chain_event.get('n', 'Unknown Chain Event')
@@ -245,6 +249,15 @@ def parse_events_from_json_data(event_data: Dict[str, Any], debug: bool, skill_m
             dbg(debug, f" [INFO] Parsed chain event: {title!r} (step {chain_step})")
         
         chain_step += 1
+    
+    parse_random_event(events_struct.get('version', []))
+    parse_random_event(events_struct.get('wchoice', []))
+    parse_random_event(events_struct.get('outings', []))
+    # parse_random_event(events_struct.get('secret', [])) # don't need secret events
+    # TODO
+    # nyear = New Year's Resolutions top choice
+    # dance = Dance Lesson top / bottom choice
+    parse_random_event(events_struct.get('nochoice', [])) # technically don't need this but why not
         
     return out
 
