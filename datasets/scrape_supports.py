@@ -111,6 +111,13 @@ def parse_effects_from_event_dict(event_dict: Dict[str, Any], skill_map: Dict[st
                 # Join all skill names with ' / ' and add to hints
                 hint_string = " / ".join(skill_names)
                 current_eff.setdefault('hints', []).append(hint_string)
+        elif type_code == 'ee':
+            current_eff.setdefault("chain_end", True)
+        elif type_code == 'se':
+            status = item.get('d')
+            current_eff.setdefault("status", status)
+        elif type_code == 'ha':
+            current_eff.setdefault("status", "Heal all negative status effects")
         
         try:
             # Safely handle value, stripping potential '+' sign
