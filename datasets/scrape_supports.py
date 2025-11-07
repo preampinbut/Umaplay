@@ -91,6 +91,25 @@ def parse_effects_from_event_dict(event_dict: Dict[str, Any], skill_map: Dict[st
             continue # Skip to the next item
             
         value_raw = item.get('v')
+
+        # --- Handle 'sr' (Skill Roll) type code which has nested data ---
+        if type_code == 'sr':
+            # 'sr' structure: nested list of skills in 'd'
+            skills_data = item.get('d', [])
+            skill_names = []
+            
+            for skill_item in skills_data:
+                skill_id = str(skill_item.get('d', ''))
+                skill_value_raw = skill_item.get('v')
+
+                # Translate skill ID
+                skill_name = skill_map.get(skill_id, f"Skill ID: {skill_id}")
+                skill_names.append(f"{skill_name} ({skill_value_raw})")
+                
+            if skill_names:
+                # Join all skill names with ' / ' and add to hints
+                hint_string = " / ".join(skill_names)
+                current_eff.setdefault('hints', []).append(hint_string)
         
         try:
             # Safely handle value, stripping potential '+' sign
@@ -120,7 +139,7 @@ def parse_effects_from_event_dict(event_dict: Dict[str, Any], skill_map: Dict[st
             skill_id = str(item.get('d', ''))
             # **TRANSLATE SKILL ID HERE**
             skill_name = skill_map.get(skill_id, f"Skill ID: {skill_id}")
-            current_eff.setdefault('hints', []).append(skill_name)
+            current_eff.setdefault('hints', []).append(f"{skill_name} ({value_raw})")
             
     # Finalize and append the last accumulated outcome if it contains effects
     final_eff = {k: v for k, v in current_eff.items() if v not in (None, 0, [])}
